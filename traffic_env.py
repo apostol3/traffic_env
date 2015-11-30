@@ -50,6 +50,7 @@ class Car:
         self.h = 2
         self.traffic = traffic_light
         self.game = game
+        self.cross_time = 0
 
     def stop(self):
         self.v = (0, 0)
@@ -58,6 +59,7 @@ class Car:
         self.v = (5 * (2 * self.direction - 1), 0)
 
     def tick(self, dt):
+        self.cross_time += dt
         self.v = (self.v[0] + self.a[0] * dt, self.v[1] + self.a[1] * dt)
         self.pos = (self.pos[0] + self.v[0] * dt, self.pos[1] + self.v[1] * dt)
         near = 1.5
@@ -89,6 +91,7 @@ class Pedestrian:
         self.l = 0.5
         self.traffic = traffic_light
         self.game = game
+        self.cross_time = 0
 
     def stop(self):
         self.v = (0, 0)
@@ -97,6 +100,7 @@ class Pedestrian:
         self.v = (0, 1 * (2 * self.direction - 1))
 
     def tick(self, dt):
+        self.cross_time += dt
         self.v = (self.v[0] + self.a[0] * dt, self.v[1] + self.a[1] * dt)
         self.pos = (self.pos[0] + self.v[0] * dt, self.pos[1] + self.v[1] * dt)
         near = 0.5
@@ -124,6 +128,7 @@ class Game:
         pygame.init()
         self.size = self.width, self.height = 1200, 550
         self.black = 0, 0, 0
+        self.white = 255, 255, 255
         self.blue = 0, 0, 255
         self.green = 0, 255, 0
         self.red = 255, 0, 0
@@ -132,6 +137,8 @@ class Game:
         self.pink = 252, 15, 192
 
         self.screen = pygame.display.set_mode(self.size)
+        self.font = pygame.font.SysFont('Tahoma', 12, False, False)
+
         self.zoom = 17
         self.road_width = 7
         self.road_segment = 25
@@ -145,12 +152,30 @@ class Game:
         self.cars = []
         self.pedestrians = []
 
+        self.inputs = [0]
+        self.outputs = [0, 0, 0]
+        self.sensors = [1, 3, 7, 13, 21]
+
+        self.sim_time = 0
+        self.red_time = 0
+        self.green_time = 0
+        self.switch_time = 0
+
+        self.cars_crossed = 0
+        self.peds_crossed = 0
+
+        self.cars_wait = 0
+        self.peds_wait = 0
+
     def recycling_cars(self, dt):
         live_cars = []
         for car in self.cars:
             if (car.direction is True and car.pos[0] < self.zebra_width + self.road_segment) \
                     or (car.direction is False and car.pos[0] + car.w > -self.road_segment):
                 live_cars.append(car)
+            else:
+                self.cars_crossed += 1
+                self.cars_wait += car.cross_time
 
         self.cars = live_cars
 
@@ -178,6 +203,9 @@ class Game:
             if (p.direction is True and p.pos[1] < self.road_width + 2 * self.zebra_width) \
                     or (p.direction is False and p.pos[1] + p.l > -2 * self.zebra_width):
                 live_peds.append(p)
+            else:
+                self.peds_crossed += 1
+                self.peds_wait += p.cross_time
 
         self.pedestrians = live_peds
 
@@ -199,7 +227,6 @@ class Game:
             self.pedestrians.append(Pedestrian((2 * self.zebra_width / 3, down), False, self.traffic_light, self))
 
     def tick(self, dt):
-        self.traffic_light.control_sig = not self.traffic_light.control_sig
         self.traffic_light.tick(dt)
         for car in self.cars:
             car.tick(dt)
@@ -209,6 +236,14 @@ class Game:
 
         self.recycling_cars(dt)
         self.recycling_pedestrians(dt)
+
+        self.sim_time += dt
+        if self.traffic_light.state == TrafficState.green:
+            self.green_time += dt
+        elif self.traffic_light.state == TrafficState.red:
+            self.red_time += dt
+        else:
+            self.switch_time += dt
 
     def draw_zebra(self):
         number_of_lines = 7
@@ -258,11 +293,33 @@ class Game:
                             int(traffic_light_pos_y + 1 / 6 * traffic_light_h)], int(traffic_light_w / 2),
                            not green_light)
 
+    def draw_lamp(self, position, text, color, val):
+        _text = self.font.render(text, True, (255, 255, 255))
+        self.screen.blit(_text, (position[0] + 10, position[1]))
+
+        pygame.draw.circle(self.screen, (128, 128, 128), (position[0], position[1] + 7), 5, 1)
+
+        if val:
+            pygame.draw.circle(self.screen, color, (position[0], position[1] + 7), 4, 0)
+
+    def draw_bar(self, rect, color, val):
+        pygame.draw.rect(self.screen, (128, 128, 128), ((rect[0][0], rect[0][1]), (rect[1][0], rect[1][1])), 1)
+        if val:
+            pygame.draw.rect(self.screen, color,
+                             ((rect[0][0] + 1, rect[0][1] + rect[1][1] - 2), (rect[1][0] - 2, -val * (rect[1][1] - 4))))
+
     def draw(self):
         self.screen.fill(self.black)
         self.draw_zebra()
         self.draw_traffic_light()
-        pygame.draw.circle(self.screen, self.red, [100, 100], 10, self.traffic_light.control_sig)
+        for s in self.sensors:
+            pygame.draw.line(self.screen, self.white,
+                             [self.cam_pos_X + (self.zebra_width + s) * self.zoom, self.cam_pos_Y], [
+                                 self.cam_pos_X + (self.zebra_width + s) * self.zoom,
+                                 self.cam_pos_Y + (self.road_width / 2) * self.zoom])
+            pygame.draw.line(self.screen, self.white,
+                             [self.cam_pos_X - s * self.zoom, self.cam_pos_Y + self.road_width * self.zoom],
+                             [self.cam_pos_X - s * self.zoom, self.cam_pos_Y + self.road_width / 2 * self.zoom])
         for car in self.cars:
             pygame.draw.rect(self.screen, self.red,
                              [car.pos[0] * self.zoom + self.cam_pos_X, car.pos[1] * self.zoom + self.cam_pos_Y,
@@ -272,7 +329,59 @@ class Game:
             pygame.draw.rect(self.screen, self.pink,
                              [p.pos[0] * self.zoom + self.cam_pos_X, p.pos[1] * self.zoom + self.cam_pos_Y,
                               p.l * self.zoom, p.l * self.zoom])
+
+        self.draw_bar(((50, 10), (10, 50)), (40, 235, 40), self.inputs[0])
+
+        self.draw_bar(((100, 10), (10, 50)), (235, 40, 40), self.outputs[0])
+        self.draw_bar(((115, 10), (10, 50)), (40, 40, 235), self.outputs[1])
+        self.draw_bar(((130, 10), (10, 50)), (40, 40, 235), self.outputs[2])
+        for i in range(3, len(self.outputs)):
+            self.draw_bar(((100 + i * 15, 10), (10, 50)), self.white, self.outputs[i])
+
+        if self.sim_time:
+            self.draw_bar(((500, 10), (10, 50)), (235, 40, 40), self.red_time / self.sim_time)
+            self.draw_bar(((515, 10), (10, 50)), (40, 235, 40), self.green_time / self.sim_time)
+            self.draw_bar(((530, 10), (10, 50)), (235, 235, 40), self.switch_time / self.sim_time)
+
+        self.screen.blit(self.font.render("Simulation time:  {:.0f}s".format(self.sim_time), True, (255, 255, 255)),
+                         (650, 10))
+        self.screen.blit(self.font.render("Cars crossed:  {}".format(self.cars_crossed), True, (255, 255, 255)),
+                         (650, 30))
+        self.screen.blit(self.font.render("Peds crossed: {}".format(self.peds_crossed), True, (255, 255, 255)),
+                         (650, 50))
+        if self.cars_crossed:
+            self.screen.blit(self.font.render("Cars wait:  {:3.1f}s".format(self.cars_wait / self.cars_crossed),
+                                              True, (255, 255, 255)), (650, 70))
+        if self.peds_crossed:
+            self.screen.blit(self.font.render("Peds wait: {:3.1f}s".format(self.peds_wait / self.peds_crossed),
+                                              True, (255, 255, 255)), (650, 90))
+
         pygame.display.flip()
+
+    def get(self):
+        outputs = []
+        state_mappings = [1, 1, 0, 0]
+        outputs.append(state_mappings[self.traffic_light.state.value])
+        up_sensor = any(map((lambda p: 0 < p.pos[0] < self.zebra_width and -self.zebra_width < p.pos[1] < 0),
+                            self.pedestrians))
+        down_sensor = any(map((lambda p: 0 < p.pos[0] < self.zebra_width and
+                                         self.road_width < p.pos[1] < self.road_width + self.zebra_width),
+                              self.pedestrians))
+        outputs.append(up_sensor)
+        outputs.append(down_sensor)
+
+        for s in self.sensors:
+            val = any(map((lambda c: c.direction and c.pos[0] < -s < c.pos[0] + c.w), self.cars))
+            outputs.append(val)
+        for s in self.sensors:
+            val = any(map((lambda c: not c.direction and c.pos[0] < s + self.zebra_width < c.pos[0] + c.w), self.cars))
+            outputs.append(val)
+        self.outputs = outputs
+        return outputs
+
+    def set(self, inputs):
+        self.inputs = inputs
+        self.traffic_light.control_sig = inputs[0]
 
 
 def main():
@@ -281,14 +390,19 @@ def main():
     time_draw = time.perf_counter()
 
     while time.perf_counter() - time_old < 100:
-        keys = pygame.key.get_pressed()
-        game.traffic_light.control_sig = game.traffic_light.control_sig ^ keys[pygame.K_SPACE]
         game.tick(1 / 30)
-        time.sleep(1 / 90)
+        game.get()
+        time.sleep(1 / 120)
+
+        # game.set([not game.traffic_light.control_sig])
+        game.set([not (game.outputs[1] or game.outputs[2]) or
+                  (game.outputs[3] and game.outputs[7]) or (game.outputs[12] and game.outputs[8])])
         if time.perf_counter() - time_draw > 1 / 30:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     sys.exit()
+            # keys = pygame.key.get_pressed()
+            # game.set([game.traffic_light.control_sig ^ bool(keys[pygame.K_SPACE])])
             game.draw()
             time_draw = time.perf_counter()
 
