@@ -355,6 +355,10 @@ class Game:
         if self.peds_crossed:
             self.screen.blit(self.font.render("Peds wait: {:3.1f}s".format(self.peds_wait / self.peds_crossed),
                                               True, (255, 255, 255)), (650, 90))
+        if self.peds_crossed and self.cars_crossed:
+            val = (50-self.cars_wait / self.cars_crossed)*100 + (50-self.peds_wait / self.peds_crossed)*100
+            self.screen.blit(self.font.render("Fitness: {:6.0f}".format(val),
+                                              True, (255, 255, 255)), (650, 110))
 
         pygame.display.flip()
 
