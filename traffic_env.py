@@ -2,6 +2,7 @@ import random
 import sys
 import time
 from enum import Enum
+from math import e
 
 import pygame
 
@@ -167,6 +168,9 @@ class Game:
         self.cars_wait = 0
         self.peds_wait = 0
 
+        self.go = False
+        self.fitness = 0
+
     def recycling_cars(self, dt):
         live_cars = []
         for car in self.cars:
@@ -227,6 +231,9 @@ class Game:
             self.pedestrians.append(Pedestrian((2 * self.zebra_width / 3, down), False, self.traffic_light, self))
 
     def tick(self, dt):
+        if self.go:
+            return
+
         self.traffic_light.tick(dt)
         for car in self.cars:
             car.tick(dt)
@@ -244,6 +251,12 @@ class Game:
             self.red_time += dt
         else:
             self.switch_time += dt
+
+        self.go |= any(map((lambda p: p.cross_time > 90), self.pedestrians)) or \
+            any(map((lambda c: c.cross_time > 120), self.cars)) or self.sim_time > 3600
+
+        if self.peds_crossed and self.cars_crossed:
+            self.fitness = 12216*e**(-0.04*(self.cars_wait + self.peds_wait)/(self.cars_crossed+self.peds_crossed))
 
     def draw_zebra(self):
         number_of_lines = 7
@@ -355,10 +368,9 @@ class Game:
         if self.peds_crossed:
             self.screen.blit(self.font.render("Peds wait: {:3.1f}s".format(self.peds_wait / self.peds_crossed),
                                               True, (255, 255, 255)), (650, 90))
-        if self.peds_crossed and self.cars_crossed:
-            val = (50-self.cars_wait / self.cars_crossed)*100 + (50-self.peds_wait / self.peds_crossed)*100
-            self.screen.blit(self.font.render("Fitness: {:6.0f}".format(val),
-                                              True, (255, 255, 255)), (650, 110))
+
+        self.screen.blit(self.font.render("Fitness: {:6.0f}".format(self.fitness),
+                                          True, (255, 255, 255)), (650, 110))
 
         pygame.display.flip()
 
@@ -385,7 +397,38 @@ class Game:
 
     def set(self, inputs):
         self.inputs = inputs
-        self.traffic_light.control_sig = inputs[0]
+        self.traffic_light.control_sig = inputs[0] > 0.5
+
+    def dispatch_messages(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    self.restart()
+
+    def restart(self):
+        self.traffic_light = TrafficLight()
+        self.cars = []
+        self.pedestrians = []
+
+        self.inputs = [0]
+        self.outputs = [0, 0, 0]
+        self.sensors = [1, 3, 7, 13, 21]
+
+        self.sim_time = 0
+        self.red_time = 0
+        self.green_time = 0
+        self.switch_time = 0
+
+        self.cars_crossed = 0
+        self.peds_crossed = 0
+
+        self.cars_wait = 0
+        self.peds_wait = 0
+
+        self.go = False
+        self.fitness = 0
 
 
 def main():
@@ -402,9 +445,7 @@ def main():
         game.set([not (game.outputs[1] or game.outputs[2]) or
                   (game.outputs[3] and game.outputs[7]) or (game.outputs[12] and game.outputs[8])])
         if time.perf_counter() - time_draw > 1 / 30:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    sys.exit()
+            game.dispatch_messages()
             # keys = pygame.key.get_pressed()
             # game.set([game.traffic_light.control_sig ^ bool(keys[pygame.K_SPACE])])
             game.draw()
