@@ -252,11 +252,23 @@ class Game:
         else:
             self.switch_time += dt
 
-        self.go |= any(map((lambda p: p.cross_time > 90), self.pedestrians)) or \
-            any(map((lambda c: c.cross_time > 120), self.cars)) or self.sim_time > 3600
+        fail_state = self.is_fail()
+        self.go |= fail_state or self.sim_time > 3600
 
         if self.peds_crossed and self.cars_crossed:
-            self.fitness = 12216*e**(-0.04*(self.cars_wait + self.peds_wait)/(self.cars_crossed+self.peds_crossed))
+            if not fail_state:
+                self.fitness = 12216*e**(-0.04*(self.cars_wait + self.peds_wait)/(self.cars_crossed+self.peds_crossed))
+            else:
+                live_cars_wait = sum(map((lambda c: c.cross_time), self.cars))
+                live_peds_wait = sum(map((lambda p: p.cross_time), self.pedestrians))
+                live_cars_count = len(self.cars)
+                live_peds_count = len(self.pedestrians)
+                self.fitness = 12216*e**(-0.04*(self.cars_wait + self.peds_wait + live_cars_wait + live_peds_wait)/
+                                         (self.cars_crossed+self.peds_crossed + live_cars_count + live_peds_count))
+
+    def is_fail(self):
+        return any(map((lambda p: p.cross_time > 90), self.pedestrians)) or \
+            any(map((lambda c: c.cross_time > 120), self.cars))
 
     def draw_zebra(self):
         number_of_lines = 7
