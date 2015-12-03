@@ -8,7 +8,6 @@ import traffic_env
 
 __author__ = 'leon.ljsh'
 
-
 parser = argparse.ArgumentParser(description="traffic enviroment for nlab")
 parser.add_argument("-p", "--pipe", help="pipe name (default: %(default)s)",
                     metavar="name", type=str, dest="pipe_name", default="nlab")
@@ -46,7 +45,7 @@ while lab.is_ok != env.VerificationHeader.stop:
             exit()
         game.set(get.data[0])
 
-        game.tick(1/30)
+        game.tick(1 / 15)
         new_time = time.perf_counter()
         if new_time - last_time > 1 / 30:
             last_time = new_time

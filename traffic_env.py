@@ -64,16 +64,24 @@ class Car:
         self.v = (self.v[0] + self.a[0] * dt, self.v[1] + self.a[1] * dt)
         self.pos = (self.pos[0] + self.v[0] * dt, self.pos[1] + self.v[1] * dt)
         near = 1.5
+
         if self.direction is True:
-            near_f = list(filter((lambda c: c.direction and (c.pos[0] > self.pos[0] + self.w)), self.game.cars))
-            if near_f:
-                near = min(c.pos[0] - (self.pos[0] + self.w) for c in near_f)
+            try:
+                near = min(c.pos[0] - (self.pos[0] + self.w) for c in self.game.cars
+                           if c.direction and (c.pos[0] > self.pos[0] + self.w))
+            except ValueError:
+                pass
+
             if self.pos[0] + self.w < 0 and self.traffic.state != TrafficState.green:
                 near = min(-self.pos[0] - self.w, near)
         else:
-            near_f = list(filter((lambda c: not c.direction and (c.pos[0] + c.w < self.pos[0])), self.game.cars))
-            if near_f:
-                near = min(self.pos[0] - (c.pos[0] + c.w) for c in near_f)
+
+            try:
+                near = min(self.pos[0] - (c.pos[0] + c.w) for c in self.game.cars
+                           if not c.direction and (c.pos[0] + c.w < self.pos[0]))
+            except ValueError:
+                pass
+
             if self.pos[0] > self.game.zebra_width and self.traffic.state != TrafficState.green:
                 near = min(self.pos[0] - self.game.zebra_width, near)
 
@@ -105,16 +113,23 @@ class Pedestrian:
         self.v = (self.v[0] + self.a[0] * dt, self.v[1] + self.a[1] * dt)
         self.pos = (self.pos[0] + self.v[0] * dt, self.pos[1] + self.v[1] * dt)
         near = 0.5
+
         if self.direction is True:
-            near_f = list(filter((lambda p: p.direction and (self.pos[1] + self.l < p.pos[1])), self.game.pedestrians))
-            if near_f:
-                near = min(p.pos[1] - (self.pos[1] + self.l) for p in near_f)
+            try:
+                near = min(p.pos[1] - (self.pos[1] + self.l) for p in self.game.pedestrians
+                           if p.direction and (self.pos[1] + self.l < p.pos[1]))
+            except ValueError:
+                pass
+
             if self.pos[1] + self.l < 0 and self.traffic.state != TrafficState.red:
                 near = min(-self.pos[1] - self.l, near)
         else:
-            near_f = list(filter((lambda p: not p.direction and (self.pos[1] > p.pos[1] + p.l)), self.game.pedestrians))
-            if near_f:
-                near = min(self.pos[1] - (p.pos[1] + p.l) for p in near_f)
+            try:
+                near = min(self.pos[1] - (p.pos[1] + p.l) for p in self.game.pedestrians
+                           if not p.direction and (self.pos[1] > p.pos[1] + p.l))
+            except ValueError:
+                pass
+
             if self.pos[1] > self.game.road_width and self.traffic.state != TrafficState.red:
                 near = min(self.pos[1] - self.game.road_width, near)
 
@@ -154,8 +169,8 @@ class Game:
         self.pedestrians = []
 
         self.inputs = [0]
-        self.outputs = [0, 0, 0]
-        self.sensors = [1, 3, 7, 13, 21]
+        self.outputs = [0 for _ in range(13)]
+        self.sensors = (1, 3, 7, 13, 21)
 
         self.sim_time = 0
         self.red_time = 0
@@ -257,18 +272,20 @@ class Game:
 
         if self.peds_crossed and self.cars_crossed:
             if not fail_state:
-                self.fitness = 12216*e**(-0.04*(self.cars_wait + self.peds_wait)/(self.cars_crossed+self.peds_crossed))
+                self.fitness = 12216 * e ** (
+                    -0.04 * (self.cars_wait + self.peds_wait) / (self.cars_crossed + self.peds_crossed))
             else:
-                live_cars_wait = sum(map((lambda c: c.cross_time), self.cars))
-                live_peds_wait = sum(map((lambda p: p.cross_time), self.pedestrians))
+                live_cars_wait = sum(c.cross_time for c in self.cars)
+                live_peds_wait = sum(p.cross_time for p in self.pedestrians)
                 live_cars_count = len(self.cars)
                 live_peds_count = len(self.pedestrians)
-                self.fitness = 12216*e**(-0.04*(self.cars_wait + self.peds_wait + live_cars_wait + live_peds_wait)/
-                                         (self.cars_crossed+self.peds_crossed + live_cars_count + live_peds_count))
+                self.fitness = 12216 * e ** (
+                    -0.04 * (self.cars_wait + self.peds_wait + live_cars_wait + live_peds_wait) /
+                    (self.cars_crossed + self.peds_crossed + live_cars_count + live_peds_count))
 
     def is_fail(self):
-        return any(map((lambda p: p.cross_time > 90), self.pedestrians)) or \
-            any(map((lambda c: c.cross_time > 120), self.cars))
+        return any(True for p in self.pedestrians if p.cross_time > 90) or \
+               any(True for c in self.cars if c.cross_time > 120)
 
     def draw_zebra(self):
         number_of_lines = 7
@@ -388,22 +405,24 @@ class Game:
 
     def get(self):
         outputs = []
-        state_mappings = [1, 1, 0, 0]
+        state_mappings = (1, 1, 0, 0)
         outputs.append(state_mappings[self.traffic_light.state.value])
-        up_sensor = any(map((lambda p: 0 < p.pos[0] < self.zebra_width and -self.zebra_width < p.pos[1] < 0),
-                            self.pedestrians))
-        down_sensor = any(map((lambda p: 0 < p.pos[0] < self.zebra_width and
-                                         self.road_width < p.pos[1] < self.road_width + self.zebra_width),
-                              self.pedestrians))
+
+        up_sensor = any(True for p in self.pedestrians if
+                        0 < p.pos[0] < self.zebra_width and -self.zebra_width < p.pos[1] < 0)
+        down_sensor = any(True for p in self.pedestrians if
+                          0 < p.pos[0] < self.zebra_width and
+                          self.road_width < p.pos[1] < self.road_width + self.zebra_width)
         outputs.append(up_sensor)
         outputs.append(down_sensor)
 
         for s in self.sensors:
-            val = any(map((lambda c: c.direction and c.pos[0] < -s < c.pos[0] + c.w), self.cars))
+            val = any(True for c in self.cars if c.direction and c.pos[0] < -s < c.pos[0] + c.w)
             outputs.append(val)
         for s in self.sensors:
-            val = any(map((lambda c: not c.direction and c.pos[0] < s + self.zebra_width < c.pos[0] + c.w), self.cars))
+            val = any(True for c in self.cars if not c.direction and c.pos[0] < s + self.zebra_width < c.pos[0] + c.w)
             outputs.append(val)
+
         self.outputs = outputs
         return outputs
 
@@ -449,9 +468,9 @@ def main():
     time_draw = time.perf_counter()
 
     while time.perf_counter() - time_old < 100:
-        game.tick(1 / 30)
+        game.tick(1 / 15)
         game.get()
-        time.sleep(1 / 120)
+        time.sleep(1 / 60)
 
         # game.set([not game.traffic_light.control_sig])
         game.set([not (game.outputs[1] or game.outputs[2]) or
