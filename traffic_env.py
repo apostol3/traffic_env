@@ -140,7 +140,7 @@ class Pedestrian:
 
 
 class Game:
-    def __init__(self):
+    def __init__(self, max_time):
         pygame.init()
         self.size = self.width, self.height = 1200, 550
         self.black = 0, 0, 0
@@ -172,6 +172,10 @@ class Game:
         self.outputs = [0 for _ in range(13)]
         self.sensors = (1, 3, 7, 13, 21)
 
+        self.gen_possibilities = [(1 / 14, 1 / 3), (1 / 3, 1 / 20), (1 / 30, 1 / 90), (1 / 3, 1 / 5)]
+        random.shuffle(self.gen_possibilities)
+
+        self.max_time = max_time
         self.sim_time = 0
         self.red_time = 0
         self.green_time = 0
@@ -186,6 +190,10 @@ class Game:
         self.go = False
         self.fitness = 0
 
+    @property
+    def current_part(self):
+        return int(self.sim_time / int(self.max_time / 4))
+
     def recycling_cars(self, dt):
         live_cars = []
         for car in self.cars:
@@ -198,7 +206,8 @@ class Game:
 
         self.cars = live_cars
 
-        appear_possibility = dt * 1 / 5, dt * 1 / 5
+        appear_possibility = (dt * self.gen_possibilities[self.current_part][0],
+                              dt * self.gen_possibilities[self.current_part][0])
         if random.random() < appear_possibility[0]:
             if self.cars:
                 left = min(min((car.pos[0] - 0.5 - random.random() * 5) * car.direction for car in self.cars),
@@ -228,7 +237,8 @@ class Game:
 
         self.pedestrians = live_peds
 
-        appear_possibility = dt * 1 / 10, dt * 1 / 10
+        appear_possibility = (dt * self.gen_possibilities[self.current_part][1],
+                              dt * self.gen_possibilities[self.current_part][1])
         if random.random() < appear_possibility[0]:
             if self.pedestrians:
                 up = min(min((p.pos[1] - 0.1 - random.random() * 0.4) * p.direction for p in self.pedestrians),
@@ -268,7 +278,7 @@ class Game:
             self.switch_time += dt
 
         fail_state = self.is_fail()
-        self.go |= fail_state or self.sim_time > 3600
+        self.go |= fail_state or self.sim_time > self.max_time
 
         if self.peds_crossed and self.cars_crossed:
             if not fail_state:
@@ -463,11 +473,11 @@ class Game:
 
 
 def main():
-    game = Game()
-    time_old = time.perf_counter()
+    game = Game(3600)
+    # time_old = time.perf_counter()
     time_draw = time.perf_counter()
 
-    while time.perf_counter() - time_old < 100:
+    while True:
         game.tick(1 / 15)
         game.get()
         time.sleep(1 / 60)

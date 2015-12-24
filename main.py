@@ -8,9 +8,20 @@ import traffic_env
 
 __author__ = 'leon.ljsh'
 
+
+def above_zero(string):
+    value = int(string)
+    if value <= 0:
+        msg = "{} not above zero".format(value)
+        raise argparse.ArgumentTypeError(msg)
+    return value
+
+
 parser = argparse.ArgumentParser(description="traffic enviroment for nlab")
 parser.add_argument("-p", "--pipe", help="pipe name (default: %(default)s)",
                     metavar="name", type=str, dest="pipe_name", default="nlab")
+parser.add_argument("-t", "--time", help="simulation time in seconds (default: %(default)s)",
+                    metavar="sec", type=above_zero, dest="time", default=3600)
 
 args = parser.parse_args()
 
@@ -25,7 +36,7 @@ esi.mode = env.SendModes.specified
 
 last_time = time.perf_counter()
 lab = nlab.NLab(pipe_str.format(pipe_name))
-game = traffic_env.Game()
+game = traffic_env.Game(args.time)
 
 lab.connect()
 
