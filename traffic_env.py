@@ -292,6 +292,7 @@ class Game:
                 self.fitness = 12216 * e ** (
                     -0.04 * (self.cars_wait + self.peds_wait + live_cars_wait + live_peds_wait) /
                     (self.cars_crossed + self.peds_crossed + live_cars_count + live_peds_count))
+                self.fitness /= 10
 
     def is_fail(self):
         return any(True for p in self.pedestrians if p.cross_time > 90) or \
