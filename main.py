@@ -1,8 +1,7 @@
 import argparse
 import time
 
-import env
-import nlab
+import pynlab
 
 import traffic_env
 
@@ -28,14 +27,14 @@ args = parser.parse_args()
 pipe_str = "\\\\.\\pipe\\{}"
 pipe_name = args.pipe_name
 
-esi = env.EStartInfo()
+esi = pynlab.EStartInfo()
 esi.count = 1
 esi.incount = 13
 esi.outcount = 1
-esi.mode = env.SendModes.specified
+esi.mode = pynlab.SendModes.specified
 
 last_time = time.perf_counter()
-lab = nlab.NLab(pipe_str.format(pipe_name))
+lab = pynlab.NLab(pipe_str.format(pipe_name))
 game = traffic_env.Game(args.time)
 
 lab.connect()
@@ -43,16 +42,16 @@ lab.connect()
 lab.set_start_info(esi)
 lab.get_start_info()
 
-while lab.is_ok != env.VerificationHeader.stop:
+while lab.is_ok != pynlab.VerificationHeader.stop:
     while not game.go:
-        esdi = env.ESendInfo()
-        esdi.head = env.VerificationHeader.ok
+        esdi = pynlab.ESendInfo()
+        esdi.head = pynlab.VerificationHeader.ok
         game.outputs = game.get()
         esdi.data = [game.outputs]
         lab.set(esdi)
 
         get = lab.get()
-        if lab.is_ok == env.VerificationHeader.stop:
+        if lab.is_ok == pynlab.VerificationHeader.stop:
             exit()
         game.set(get.data[0])
 
@@ -63,11 +62,11 @@ while lab.is_ok != env.VerificationHeader.stop:
             game.dispatch_messages()
             game.draw()
 
-    eri = env.ERestartInfo()
+    eri = pynlab.ERestartInfo()
     eri.result = [game.fitness]
     lab.restart(eri)
     game.restart()
 
     lab.get()
-    if lab.is_ok == env.VerificationHeader.stop:
+    if lab.is_ok == pynlab.VerificationHeader.stop:
         exit()
