@@ -434,8 +434,8 @@ class Game:
             val = any(True for c in self.cars if not c.direction and c.pos[0] < s + self.zebra_width < c.pos[0] + c.w)
             outputs.append(val)
 
-        self.outputs = outputs
-        return outputs
+        self.outputs = [int(out) for out in outputs]
+        return self.outputs
 
     def set(self, inputs):
         self.inputs = inputs
