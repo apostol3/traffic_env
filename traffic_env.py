@@ -140,33 +140,15 @@ class Pedestrian:
 
 
 class Game:
-    def __init__(self, max_time):
-        pygame.init()
-        self.size = self.width, self.height = 1200, 550
-        self.black = 0, 0, 0
-        self.white = 255, 255, 255
-        self.blue = 0, 0, 255
-        self.green = 0, 255, 0
-        self.red = 255, 0, 0
-        self.violet = 255, 0, 255
-        self.yellow = 255, 255, 0
-        self.pink = 252, 15, 192
+    def __init__(self, max_time, gui=True):
+        self.traffic_light = TrafficLight()
+        self.cars = []
+        self.pedestrians = []
 
-        self.screen = pygame.display.set_mode(self.size)
-        self.font = pygame.font.SysFont('Tahoma', 12, False, False)
-
-        self.zoom = 17
         self.road_width = 7
         self.road_segment = 25
         self.zebra_width = 3
         self.road_length = self.road_segment * 2 + self.zebra_width
-
-        self.cam_pos_X = self.width / 2 - self.zebra_width * self.zoom / 2
-        self.cam_pos_Y = 300
-
-        self.traffic_light = TrafficLight()
-        self.cars = []
-        self.pedestrians = []
 
         self.inputs = [0]
         self.outputs = [0 for _ in range(13)]
@@ -189,6 +171,30 @@ class Game:
 
         self.go = False
         self.fitness = 0
+
+        self.gui = gui
+
+        if not self.gui:
+            return
+
+        pygame.init()
+        self.size = self.width, self.height = 1200, 550
+        self.black = 0, 0, 0
+        self.white = 255, 255, 255
+        self.blue = 0, 0, 255
+        self.green = 0, 255, 0
+        self.red = 255, 0, 0
+        self.violet = 255, 0, 255
+        self.yellow = 255, 255, 0
+        self.pink = 252, 15, 192
+
+        self.screen = pygame.display.set_mode(self.size)
+        self.font = pygame.font.SysFont('Tahoma', 12, False, False)
+
+        self.zoom = 17
+
+        self.cam_pos_X = self.width / 2 - self.zebra_width * self.zoom / 2
+        self.cam_pos_Y = 300
 
     @property
     def current_part(self):
@@ -362,6 +368,8 @@ class Game:
                              ((rect[0][0] + 1, rect[0][1] + rect[1][1] - 2), (rect[1][0] - 2, -val * (rect[1][1] - 4))))
 
     def draw(self):
+        if not self.gui:
+            return
         self.screen.fill(self.black)
         self.draw_zebra()
         self.draw_traffic_light()
@@ -442,6 +450,8 @@ class Game:
         self.traffic_light.control_sig = inputs[0] > 0.5
 
     def dispatch_messages(self):
+        if not self.gui:
+            return
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
@@ -474,6 +484,7 @@ class Game:
 
 
 def main():
+    print("starting in manual mode...")
     game = Game(3600)
     # time_old = time.perf_counter()
     time_draw = time.perf_counter()
