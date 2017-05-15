@@ -182,7 +182,7 @@ class Game:
         self.black = 0, 0, 0
         self.white = 255, 255, 255
         self.blue = 0, 0, 255
-        self.green = 0, 255, 0
+        self.green = 128, 255, 128
         self.red = 255, 0, 0
         self.violet = 255, 0, 255
         self.yellow = 255, 255, 0
@@ -353,7 +353,7 @@ class Game:
                            not green_light)
 
     def draw_lamp(self, position, text, color, val):
-        _text = self.font.render(text, True, (255, 255, 255))
+        _text = self.font.render(text, True, self.white)
         self.screen.blit(_text, (position[0] + 10, position[1]))
 
         pygame.draw.circle(self.screen, (128, 128, 128), (position[0], position[1] + 7), 5, 1)
@@ -404,21 +404,21 @@ class Game:
             self.draw_bar(((515, 10), (10, 50)), (40, 235, 40), self.green_time / self.sim_time)
             self.draw_bar(((530, 10), (10, 50)), (235, 235, 40), self.switch_time / self.sim_time)
 
-        self.screen.blit(self.font.render("Simulation time:  {:.0f}s".format(self.sim_time), True, (255, 255, 255)),
+        self.screen.blit(self.font.render("Simulation time:  {:.0f}s".format(self.sim_time), True, self.white),
                          (650, 10))
-        self.screen.blit(self.font.render("Cars crossed:  {}".format(self.cars_crossed), True, (255, 255, 255)),
+        self.screen.blit(self.font.render("Cars crossed:  {}".format(self.cars_crossed), True, self.white),
                          (650, 30))
-        self.screen.blit(self.font.render("Peds crossed: {}".format(self.peds_crossed), True, (255, 255, 255)),
+        self.screen.blit(self.font.render("Peds crossed: {}".format(self.peds_crossed), True, self.white),
                          (650, 50))
         if self.cars_crossed:
             self.screen.blit(self.font.render("Cars wait:  {:3.1f}s".format(self.cars_wait / self.cars_crossed),
-                                              True, (255, 255, 255)), (650, 70))
+                                              True, self.white), (650, 70))
         if self.peds_crossed:
             self.screen.blit(self.font.render("Peds wait: {:3.1f}s".format(self.peds_wait / self.peds_crossed),
-                                              True, (255, 255, 255)), (650, 90))
+                                              True, self.white), (650, 90))
 
         self.screen.blit(self.font.render("Fitness: {:6.0f}".format(self.fitness),
-                                          True, (255, 255, 255)), (650, 110))
+                                          True, self.white), (650, 110))
 
         pygame.display.flip()
 
@@ -488,13 +488,14 @@ def main():
     game = Game(3600)
     # time_old = time.perf_counter()
     time_draw = time.perf_counter()
-
+    light_timer = 0
     while True:
         game.tick(1 / 15)
         game.get()
-        time.sleep(1 / 60)
+        #time.sleep(1 / 6000)
 
-        # game.set([not game.traffic_light.control_sig])
+        game.set([light_timer < 30])
+        #game.set([not game.traffic_light.control_sig])
         game.set([not (game.outputs[1] or game.outputs[2]) or
                   (game.outputs[3] and game.outputs[7]) or (game.outputs[12] and game.outputs[8])])
         if time.perf_counter() - time_draw > 1 / 30:
@@ -503,6 +504,10 @@ def main():
             # game.set([game.traffic_light.control_sig ^ bool(keys[pygame.K_SPACE])])
             game.draw()
             time_draw = time.perf_counter()
+        #light_timer+=1/15
+        #if light_timer>57:
+        #    light_timer=0
+        light_timer = 0 if light_timer > 60 else light_timer+1/15
 
 
 if __name__ == "__main__":
