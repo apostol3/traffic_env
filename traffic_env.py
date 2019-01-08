@@ -4,7 +4,10 @@ import time
 from enum import Enum
 from math import e
 
-import pygame
+try:
+    import pygame
+except ImportError:
+    pygame = None
 
 __author__ = "leon.ljsh"
 

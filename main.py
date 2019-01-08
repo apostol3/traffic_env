@@ -3,7 +3,7 @@ import time
 
 import pynlab
 
-import traffic_env
+from traffic_env import Game
 
 __author__ = 'leon.ljsh'
 
@@ -27,6 +27,8 @@ parser.add_argument("--no-gui", help="do not show gui", action="store_false",
 
 args = parser.parse_args()
 
+GUI = args.gui
+
 print("initializing... ", end="")
 
 esi = pynlab.EStartInfo()
@@ -38,7 +40,7 @@ esi.mode = pynlab.SendModes.specified
 last_time = time.perf_counter()
 
 lab = pynlab.NLab(args.connection_uri)
-game = traffic_env.Game(args.time, args.gui)
+game = Game(args.time, args.gui)
 print("complete")
 
 print("connenting to nlab at {}... ".format(args.connection_uri), end="", flush=True)
